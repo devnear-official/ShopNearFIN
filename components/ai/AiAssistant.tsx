@@ -101,7 +101,7 @@ export function AiAssistant() {
     try {
       // Prepare history (last 8 messages)
       const history = messages
-        .filter((m) => m.id !== "welcome" && !m.isError)
+        .filter((m) => !m.id.startsWith("welcome") && !m.isError && !m.content.includes("[GoogleGenerativeAI Error]"))
         .slice(-8)
         .map((m) => ({
           role: m.role,

@@ -129,6 +129,49 @@ export async function POST(req: NextRequest) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const candidateModels = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"];
 
+    // Sanitize conversation history for Gemini:
+    // 1. Map role 'assistant' -> 'model'
+    // 2. Ignore any error messages or empty messages
+    // 3. Gemini requires the first message in history to be 'user'
+    // 4. Gemini requires alternating roles: user, model, user, model...
+    const rawHistory = Array.isArray(body?.history) ? body.history : [];
+    const sanitizedHistory: { role: "user" | "model"; parts: { text: string }[] }[] = [];
+
+    for (const item of rawHistory) {
+      if (!item || !item.content || typeof item.content !== "string") continue;
+      const content = item.content.trim();
+      if (!content || content.includes("[GoogleGenerativeAI Error]")) continue;
+
+      const role: "user" | "model" =
+        item.role === "assistant" || item.role === "model" ? "model" : "user";
+
+      // If this is the first message and it's 'model', skip it (Gemini requires first turn to be 'user')
+      if (sanitizedHistory.length === 0 && role === "model") {
+        continue;
+      }
+
+      // Ensure alternating roles: if same role as previous, combine content
+      if (
+        sanitizedHistory.length > 0 &&
+        sanitizedHistory[sanitizedHistory.length - 1].role === role
+      ) {
+        sanitizedHistory[sanitizedHistory.length - 1].parts[0].text += "\n" + content;
+      } else {
+        sanitizedHistory.push({
+          role,
+          parts: [{ text: content }],
+        });
+      }
+    }
+
+    // Ensure history ends with 'model' turn so the active prompt from user follows 'model' (or history is empty)
+    if (
+      sanitizedHistory.length > 0 &&
+      sanitizedHistory[sanitizedHistory.length - 1].role === "user"
+    ) {
+      sanitizedHistory.pop();
+    }
+
     let chat: any = null;
     let result: any = null;
     let lastError: any = null;
@@ -142,10 +185,7 @@ export async function POST(req: NextRequest) {
         });
 
         chat = model.startChat({
-          history: (body?.history || []).map((h: any) => ({
-            role: h.role === "assistant" ? "model" : "user",
-            parts: [{ text: h.content }],
-          })),
+          history: sanitizedHistory,
         });
 
         result = await chat.sendMessage(prompt);
@@ -197,10 +237,13 @@ export async function POST(req: NextRequest) {
     const message = error.message || "Failed to process AI request";
     if (message.includes("API key not valid") || message.includes("API_KEY_INVALID")) {
       return successResponse({
-        reply: "❌ **Gemini API Key টি সঠিক নয় বা ভ্যালিড নয়!**\n\nদয়া করে Google AI Studio থেকে সঠিক API Key কপি করে Settings পেজে বা `.env.local` ফাইলে বসিয়ে পুনরায় চেষ্টা করুন।",
+        reply: "❌ **Gemini API Key টি সঠিক নয় বা ভ্যালিড নয়!**\n\nদয়া করে Google AI Studio থেকে সঠিক API Key কপি করে Settings পেজে বা `.env` ফাইলে বসিয়ে পুনরায় চেষ্টা করুন।",
         missingKey: true,
       });
     }
-    return errorResponse(message, "SERVER_ERROR", 500);
+    return successResponse({
+      reply: `⚠️ তথ্য লোড করতে সমস্যা হয়েছে: ${message}\n\nদয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।`,
+      isError: true,
+    });
   }
 }
