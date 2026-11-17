@@ -114,4 +114,5 @@ export const settingsSchema = z.object({
   stockOutTriggerRule: z.enum(["ON_CREATED", "ON_SHIPPED", "ON_DELIVERED"]),
   couriers: z.array(z.string()).min(1),
   defaultDeliveryCharge: z.coerce.number().min(0),
+  geminiApiKey: z.string().optional(),
 });

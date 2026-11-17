@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Settings as SettingsIcon, Save, RotateCw, CheckCircle2 } from "lucide-react";
+import { Settings as SettingsIcon, Save, RotateCw, CheckCircle2, Sparkles, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ export default function SettingsPage() {
   const [stockOutTriggerRule, setStockOutTriggerRule] = useState<"ON_CREATED" | "ON_SHIPPED" | "ON_DELIVERED">("ON_SHIPPED");
   const [couriersText, setCouriersText] = useState("Steadfast, Pathao, RedX, Paperfly, Other");
   const [defaultDeliveryCharge, setDefaultDeliveryCharge] = useState(120);
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const fetchSettings = async () => {
     try {
@@ -40,6 +42,7 @@ export default function SettingsPage() {
         setStockOutTriggerRule(s.stockOutTriggerRule || "ON_SHIPPED");
         setCouriersText(s.couriers?.join(", ") || "Steadfast, Pathao, RedX, Paperfly, Other");
         setDefaultDeliveryCharge(s.defaultDeliveryCharge || 120);
+        setGeminiApiKey(s.geminiApiKey || "");
       }
     } catch {
       toast("Failed to load settings", "error");
@@ -72,6 +75,7 @@ export default function SettingsPage() {
           stockOutTriggerRule,
           couriers,
           defaultDeliveryCharge: Number(defaultDeliveryCharge),
+          geminiApiKey: geminiApiKey.trim(),
         }),
       });
 
@@ -263,6 +267,44 @@ export default function SettingsPage() {
                   className="h-11"
                 />
               </div>
+            </div>
+
+            <div className="pt-3 border-t">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                  <span>Google Gemini AI Assistant API Key</span>
+                </label>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-teal-600 hover:text-teal-700 font-medium"
+                >
+                  <span>Get Free Key from Google AI Studio</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="relative">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  disabled={!canMutateData(user)}
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="h-11 pr-10 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Used to power the live AI Financial & Inventory Assistant. You can also define it in <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.env.local</code> as <code className="bg-muted px-1 py-0.5 rounded text-[10px]">GEMINI_API_KEY</code>.
+              </p>
             </div>
 
             {canMutateData(user) && (

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { DesktopSidebar } from "./DesktopSidebar";
 import { TopHeader } from "./TopHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { AiAssistant } from "@/components/ai/AiAssistant";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -30,6 +31,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
         />
+
+        {/* Global Live AI Assistant Floating Widget */}
+        <AiAssistant />
       </div>
     </div>
   );

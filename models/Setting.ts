@@ -7,6 +7,7 @@ export interface ISetting extends Document {
   stockOutTriggerRule: "ON_CREATED" | "ON_SHIPPED" | "ON_DELIVERED";
   couriers: string[];
   defaultDeliveryCharge: number;
+  geminiApiKey?: string;
   updatedAt: Date;
 }
 
@@ -25,6 +26,7 @@ const SettingSchema = new Schema<ISetting>(
       default: ["Steadfast", "Pathao", "RedX", "Paperfly", "Other"],
     },
     defaultDeliveryCharge: { type: Number, default: 120 },
+    geminiApiKey: { type: String, default: "" },
   },
   { timestamps: true }
 );
