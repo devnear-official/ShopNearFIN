@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Trash2,
+  Edit3,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,18 @@ export default function ProductsPage() {
   const [stockInBuyingPrice, setStockInBuyingPrice] = useState(0);
   const [stockInPaymentMethod, setStockInPaymentMethod] = useState("CASH");
   const [stockInLoading, setStockInLoading] = useState(false);
+
+  // Edit Product Modal
+  const [editProductModal, setEditProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editSku, setEditSku] = useState("");
+  const [editBuyingPrice, setEditBuyingPrice] = useState<number>(0);
+  const [editSellingPrice, setEditSellingPrice] = useState<number>(0);
+  const [editCurrentStock, setEditCurrentStock] = useState<number>(0);
+  const [editLowStockLimit, setEditLowStockLimit] = useState<number>(5);
+  const [editCategory, setEditCategory] = useState("General");
+  const [editSaving, setEditSaving] = useState(false);
 
   // Product History Drawer
   const [historyProduct, setHistoryProduct] = useState<any>(null);
@@ -159,6 +172,60 @@ export default function ProductsPage() {
       toast("Error stocking in", "error");
     } finally {
       setStockInLoading(false);
+    }
+  };
+
+  const openEditProduct = (p: any) => {
+    setEditingProduct(p);
+    setEditName(p.name);
+    setEditSku(p.sku);
+    setEditBuyingPrice(p.buyingPrice || 0);
+    setEditSellingPrice(p.sellingPrice || 0);
+    setEditCurrentStock(p.currentStock || 0);
+    setEditLowStockLimit(p.lowStockLimit || 5);
+    setEditCategory(p.category || "General");
+    setEditProductModal(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setEditSaving(true);
+
+    try {
+      const res = await fetch(`/api/products/${editingProduct._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName.trim(),
+          sku: editSku.trim().toUpperCase(),
+          buyingPrice: Number(editBuyingPrice),
+          sellingPrice: Number(editSellingPrice),
+          currentStock: Number(editCurrentStock),
+          lowStockLimit: Number(editLowStockLimit),
+          category: editCategory.trim() || "General",
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast(json.message || "Failed to update product", "error");
+        return;
+      }
+
+      toast(
+        language === "bn"
+          ? `পণ্য "${editName}" সফলভাবে আপডেট করা হয়েছে!`
+          : `Product "${editName}" updated successfully!`,
+        "success"
+      );
+      setEditProductModal(false);
+      setEditingProduct(null);
+      fetchProducts();
+    } catch {
+      toast("Error updating product", "error");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -342,6 +409,17 @@ export default function ProductsPage() {
                     </Button>
                     {canMutateData(user) && (
                       <Button
+                        onClick={() => openEditProduct(p)}
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-2.5 rounded-xl text-xs text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 border-teal-600/30"
+                        title={language === "bn" ? "পণ্য এডিট করুন" : "Edit Product"}
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-teal-600" />
+                      </Button>
+                    )}
+                    {canMutateData(user) && (
+                      <Button
                         onClick={() => handleDeleteProduct(p._id, p.name)}
                         variant="outline"
                         size="sm"
@@ -420,6 +498,17 @@ export default function ProductsPage() {
                         >
                           <History className="w-3.5 h-3.5 text-muted-foreground" />
                         </Button>
+                        {canMutateData(user) && (
+                          <Button
+                            onClick={() => openEditProduct(p)}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 rounded-lg text-xs text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 border-teal-600/30"
+                            title={language === "bn" ? "পণ্য এডিট করুন" : "Edit Product"}
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-teal-600" />
+                          </Button>
+                        )}
                         {canMutateData(user) && (
                           <Button
                             onClick={() => handleDeleteProduct(p._id, p.name)}
@@ -561,6 +650,136 @@ export default function ProductsPage() {
               className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold"
             >
               {savingProduct ? "Creating Product..." : "Create Product"}
+            </Button>
+          </div>
+        </form>
+      </SheetDrawer>
+
+      {/* Modal / Sheet: Edit Product */}
+      <SheetDrawer
+        isOpen={editProductModal}
+        onClose={() => {
+          setEditProductModal(false);
+          setEditingProduct(null);
+        }}
+        title={
+          language === "bn"
+            ? `পণ্য সম্পাদনা: ${editingProduct?.name}`
+            : `Edit Product: ${editingProduct?.name}`
+        }
+        description={
+          language === "bn"
+            ? "পণ্যের নাম, SKU, ক্রয় ও বিক্রয় মূল্য এবং বর্তমান স্টক পরিবর্তন করুন"
+            : "Update product details, pricing, SKU, and inventory thresholds"
+        }
+      >
+        <form onSubmit={handleUpdateProduct} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1">
+              {language === "bn" ? "পণ্যের নাম *" : "Product Name *"}
+            </label>
+            <Input
+              type="text"
+              required
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="h-11"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                SKU (Unique) *
+              </label>
+              <Input
+                type="text"
+                required
+                value={editSku}
+                onChange={(e) => setEditSku(e.target.value.toUpperCase())}
+                className="h-11 font-mono uppercase"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                {language === "bn" ? "ক্যাটাগরি" : "Category"}
+              </label>
+              <Input
+                type="text"
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                className="h-11"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                {language === "bn" ? "ক্রয় মূল্য (Buying Price ৳) *" : "Buying Price (৳) *"}
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                required
+                value={editBuyingPrice || ""}
+                onChange={(e) => setEditBuyingPrice(parseFloat(e.target.value) || 0)}
+                className="h-11"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                {language === "bn" ? "বিক্রয় মূল্য (Selling Price ৳) *" : "Selling Price (৳) *"}
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                required
+                value={editSellingPrice || ""}
+                onChange={(e) => setEditSellingPrice(parseFloat(e.target.value) || 0)}
+                className="h-11 font-bold text-teal-700 dark:text-teal-400"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                {language === "bn" ? "বর্তমান স্টক (Current Stock)" : "Current Stock (Units)"}
+              </label>
+              <Input
+                type="number"
+                min="0"
+                value={editCurrentStock}
+                onChange={(e) => setEditCurrentStock(parseInt(e.target.value) || 0)}
+                className="h-11 font-semibold"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                {language === "bn" ? "লো স্টক সতর্কতা সীমা" : "Low Stock Limit"}
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={editLowStockLimit}
+                onChange={(e) => setEditLowStockLimit(parseInt(e.target.value) || 5)}
+                className="h-11"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <Button
+              type="submit"
+              disabled={editSaving}
+              className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+            >
+              {editSaving
+                ? language === "bn" ? "সংরক্ষণ হচ্ছে..." : "Updating..."
+                : language === "bn" ? "পরিবর্তন সংরক্ষণ করুন" : "Save Changes"}
             </Button>
           </div>
         </form>
