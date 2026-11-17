@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Account } from "@/models/Account";
 import { Transaction } from "@/models/Transaction";
+import { Order } from "@/models/Order";
+import { PartnersLedger } from "@/models/PartnersLedger";
 import { getSessionFromRequest } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-helpers";
 import { calculateAccountBalance } from "@/lib/formulas";
@@ -16,6 +18,35 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
+
+    // Auto-clean any orphan transactions from previously deleted orders or partners
+    try {
+      const codTxList = await Transaction.find({ refType: "ORDER_COD" });
+      if (codTxList.length > 0) {
+        const allOrders = await Order.find().select("_id");
+        const validOrderIds = new Set(allOrders.map((o) => o._id.toString()));
+        const orphanIds = codTxList
+          .filter((tx) => tx.refId && !validOrderIds.has(tx.refId.toString()))
+          .map((tx) => tx._id);
+        if (orphanIds.length > 0) {
+          await Transaction.deleteMany({ _id: { $in: orphanIds } });
+        }
+      }
+
+      const partnerTxList = await Transaction.find({ refType: { $in: ["INVESTMENT", "WITHDRAWAL"] } });
+      if (partnerTxList.length > 0) {
+        const allEntries = await PartnersLedger.find().select("_id");
+        const validEntryIds = new Set(allEntries.map((e) => e._id.toString()));
+        const orphanPartnerIds = partnerTxList
+          .filter((tx) => tx.refId && !validEntryIds.has(tx.refId.toString()))
+          .map((tx) => tx._id);
+        if (orphanPartnerIds.length > 0) {
+          await Transaction.deleteMany({ _id: { $in: orphanPartnerIds } });
+        }
+      }
+    } catch (cleanupErr) {
+      console.warn("Orphan transaction cleanup warning:", cleanupErr);
+    }
 
     // Ensure all 4 accounts exist
     const accountsData = [];

@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Order } from "@/models/Order";
+import { Transaction } from "@/models/Transaction";
+import { Expense } from "@/models/Expense";
+import { Product } from "@/models/Product";
+import { StockMovement } from "@/models/StockMovement";
 import { getSessionFromRequest, canMutateData } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
@@ -47,6 +51,45 @@ export async function DELETE(
     }
 
     const oldValue = order.toObject();
+
+    // 1. Delete associated transactions so cash/vault balance decreases immediately!
+    await Transaction.deleteMany({
+      $or: [
+        { refId: order._id.toString() },
+        {
+          refType: "ORDER_COD",
+          note: { $regex: order.orderNumber, $options: "i" },
+        },
+      ],
+    });
+
+    // 2. Delete any associated expenses (e.g. return delivery loss recorded for this order)
+    await Expense.deleteMany({ referenceId: order._id.toString() });
+
+    // 3. If stock was deducted (order was SHIPPED or DELIVERED), restore stock back
+    if (order.status === "SHIPPED" || order.status === "DELIVERED") {
+      for (const item of order.items) {
+        if (item.productId && item.quantity > 0) {
+          await Product.findByIdAndUpdate(item.productId, {
+            $inc: { currentStock: item.quantity },
+          });
+
+          await StockMovement.create({
+            productId: item.productId,
+            productName: item.productName,
+            sku: item.sku,
+            type: "RETURN",
+            qty: item.quantity,
+            reference: `Order ${order.orderNumber} Deleted`,
+            note: `Restocked items because order was deleted`,
+            date: new Date(),
+            createdBy: user.email,
+          });
+        }
+      }
+    }
+
+    // 4. Delete the order document
     await Order.findByIdAndDelete(params.id);
 
     await logAudit({
@@ -58,7 +101,10 @@ export async function DELETE(
       ip: req.headers.get("x-forwarded-for") || "127.0.0.1",
     });
 
-    return successResponse(null, "Order deleted successfully");
+    return successResponse(
+      null,
+      `Order "${order.orderNumber}" deleted successfully and cash/stock adjusted.`
+    );
   } catch (error: any) {
     return errorResponse(error.message || "Failed to delete order", "SERVER_ERROR", 500);
   }
