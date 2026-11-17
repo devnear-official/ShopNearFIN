@@ -127,20 +127,39 @@ export async function POST(req: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction: SYSTEM_INSTRUCTION,
-      tools: AI_TOOLS,
-    });
+    const candidateModels = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"];
 
-    const chat = model.startChat({
-      history: (body?.history || []).map((h: any) => ({
-        role: h.role === "assistant" ? "model" : "user",
-        parts: [{ text: h.content }],
-      })),
-    });
+    let chat: any = null;
+    let result: any = null;
+    let lastError: any = null;
 
-    let result = await chat.sendMessage(prompt);
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: SYSTEM_INSTRUCTION,
+          tools: AI_TOOLS,
+        });
+
+        chat = model.startChat({
+          history: (body?.history || []).map((h: any) => ({
+            role: h.role === "assistant" ? "model" : "user",
+            parts: [{ text: h.content }],
+          })),
+        });
+
+        result = await chat.sendMessage(prompt);
+        if (result) break;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelName} failed, trying next:`, err.message);
+      }
+    }
+
+    if (!result || !chat) {
+      throw lastError || new Error("Failed to communicate with Gemini models");
+    }
+
     let response = result.response;
 
     // Handle tool calling loop (up to 5 turns to prevent infinite loops)

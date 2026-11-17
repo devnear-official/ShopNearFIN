@@ -211,7 +211,7 @@ export function AiAssistant() {
                 <h3 className="text-xs font-bold flex items-center gap-1.5 leading-none">
                   <span>ShopNearFin AI</span>
                   <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full font-medium">
-                    Gemini 1.5
+                    Gemini 3.5
                   </span>
                 </h3>
                 <p className="text-[10px] text-teal-100/80 mt-0.5">
