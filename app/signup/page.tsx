@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useToast } from "@/components/ui/toast";
+import { BrandLogo } from "@/components/ui/logo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -52,7 +53,15 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center bg-gradient-to-b from-teal-950 via-teal-900 to-background p-4 sm:p-6">
+    <div className="min-h-screen flex flex-col justify-between bg-gradient-to-b from-teal-950 via-teal-900 to-background p-4 sm:p-6">
+      {/* Top brand header */}
+      <div className="max-w-md w-full mx-auto flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2">
+          <BrandLogo size={32} />
+          <span className="font-extrabold text-sm text-teal-100 tracking-tight">ShopNearFin</span>
+        </div>
+      </div>
+
       <div className="max-w-md w-full mx-auto my-auto py-6">
         <Card className="rounded-3xl border-border/60 shadow-2xl backdrop-blur-xl bg-card/95">
           <CardHeader className="text-center pb-4 pt-8">

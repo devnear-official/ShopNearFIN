@@ -1,0 +1,216 @@
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+
+// 512x512 SVG Master Brand Logo
+const svgLogo = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#042F2E" />
+      <stop offset="50%" stop-color="#0F766E" />
+      <stop offset="100%" stop-color="#115E59" />
+    </linearGradient>
+
+    <!-- Vibrant Mint / Teal Ribbon Gradient -->
+    <linearGradient id="primaryGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0D9488" />
+      <stop offset="50%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="#2DD4BF" />
+    </linearGradient>
+
+    <!-- Gold / Amber Financial Accent Gradient -->
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+
+    <!-- Cyan Neon Glow Gradient -->
+    <linearGradient id="neonGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="100%" stop-color="#5EEAD4" />
+    </linearGradient>
+
+    <!-- Subtle Drop Shadows -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#021A19" flood-opacity="0.65" />
+    </filter>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base for App Icon / PWA -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bgGrad)" />
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="#2DD4BF" stroke-width="3" stroke-opacity="0.35" />
+
+  <!-- Outer Ambient Glow Ring -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#14B8A6" stroke-width="1.5" stroke-dasharray="8 12" stroke-opacity="0.25" />
+
+  <!-- Main Financial Emblem (Shopping Bag + Growth Chart + S/F Flow) -->
+  <g filter="url(#shadow)">
+    <!-- Shopping Bag Handle (Golden/Neon Arc) -->
+    <path d="M 196 150 C 196 112, 316 112, 316 150" 
+          fill="none" 
+          stroke="url(#neonGlow)" 
+          stroke-width="22" 
+          stroke-linecap="round" />
+
+    <!-- Shopping Bag / Financial Vault Base Shield -->
+    <path d="M 140 160 
+             L 372 160 
+             C 388 160, 400 174, 396 190 
+             L 366 380 
+             C 362 404, 342 422, 318 422 
+             L 194 422 
+             C 170 422, 150 404, 146 380 
+             L 116 190 
+             C 112 174, 124 160, 140 160 Z" 
+          fill="#063E3A" 
+          fill-opacity="0.9"
+          stroke="url(#primaryGrad)" 
+          stroke-width="10" />
+
+    <!-- Dynamic Rising Financial Chart Bars (Inside the Shield) -->
+    <!-- Bar 1 (Left / Greenish) -->
+    <rect x="172" y="296" width="34" height="84" rx="10" fill="#0D9488" fill-opacity="0.7" />
+    
+    <!-- Bar 2 (Center / Teal) -->
+    <rect x="226" y="248" width="34" height="132" rx="10" fill="#14B8A6" fill-opacity="0.85" />
+    
+    <!-- Bar 3 (Right / Bright Mint) -->
+    <rect x="280" y="202" width="34" height="178" rx="10" fill="url(#primaryGrad)" />
+
+    <!-- Upward Trendline Rocket Curve Cutting through -->
+    <path d="M 160 330 
+             C 200 320, 230 260, 270 230 
+             C 300 205, 330 170, 360 160" 
+          fill="none" 
+          stroke="url(#accentGrad)" 
+          stroke-width="14" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+
+    <!-- Arrowhead at Top Peak -->
+    <polygon points="364,142 382,172 344,166" fill="url(#accentGrad)" />
+
+    <!-- Currency Coin / Spark Indicator (৳ Bangladshi Taka Fintech Spark) -->
+    <circle cx="342" cy="286" r="32" fill="url(#accentGrad)" filter="url(#glow)" />
+    <!-- Bangladshi Taka Symbol ৳ in Gold Coin -->
+    <text x="342" y="298" 
+          font-family="system-ui, -apple-system, sans-serif" 
+          font-size="34" 
+          font-weight="900" 
+          fill="#042F2E" 
+          text-anchor="middle">৳</text>
+  </g>
+
+  <!-- Modern Stylized "SF" Monogram at Bottom Base -->
+  <text x="256" y="408" 
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        font-size="28" 
+        font-weight="900" 
+        letter-spacing="6" 
+        fill="#A7F3D0" 
+        fill-opacity="0.9"
+        text-anchor="middle">SHOPNEARFIN</text>
+</svg>`;
+
+async function generateAssets() {
+  const publicDir = path.join(__dirname, '..', 'public');
+  const iconsDir = path.join(publicDir, 'icons');
+
+  if (!fs.existsSync(iconsDir)) {
+    fs.mkdirSync(iconsDir, { recursive: true });
+  }
+
+  // 1. Write Master SVG logo
+  const svgPath = path.join(publicDir, 'logo.svg');
+  fs.writeFileSync(svgPath, svgLogo.trim());
+  console.log('✓ Created public/logo.svg');
+
+  // Also create favicon.svg
+  const faviconSvgPath = path.join(publicDir, 'favicon.svg');
+  fs.writeFileSync(faviconSvgPath, svgLogo.trim());
+  console.log('✓ Created public/favicon.svg');
+
+  const svgBuffer = Buffer.from(svgLogo);
+
+  // 2. Generate 512x512 PNG (PWA & Android Splash)
+  const icon512Path = path.join(iconsDir, 'icon-512x512.png');
+  await sharp(svgBuffer)
+    .resize(512, 512)
+    .png({ quality: 100, compressionLevel: 9 })
+    .toFile(icon512Path);
+  console.log('✓ Generated public/icons/icon-512x512.png (512x512)');
+
+  // Also duplicate to public/logo.png
+  await sharp(svgBuffer)
+    .resize(512, 512)
+    .png({ quality: 100 })
+    .toFile(path.join(publicDir, 'logo.png'));
+  console.log('✓ Generated public/logo.png');
+
+  // 3. Generate 192x192 PNG (PWA Standard)
+  const icon192Path = path.join(iconsDir, 'icon-192x192.png');
+  await sharp(svgBuffer)
+    .resize(192, 192)
+    .png({ quality: 100, compressionLevel: 9 })
+    .toFile(icon192Path);
+  console.log('✓ Generated public/icons/icon-192x192.png (192x192)');
+
+  // 4. Generate 180x180 PNG (Apple Touch Icon)
+  const appleTouchPath = path.join(iconsDir, 'apple-touch-icon.png');
+  await sharp(svgBuffer)
+    .resize(180, 180)
+    .png({ quality: 100 })
+    .toFile(appleTouchPath);
+  console.log('✓ Generated public/icons/apple-touch-icon.png (180x180)');
+
+  // 5. Generate Favicons: favicon-32x32.png, favicon-16x16.png, and favicon.ico
+  const favicon32Path = path.join(publicDir, 'favicon-32x32.png');
+  await sharp(svgBuffer)
+    .resize(32, 32)
+    .png()
+    .toFile(favicon32Path);
+
+  const favicon48 = await sharp(svgBuffer)
+    .resize(48, 48)
+    .png()
+    .toBuffer();
+
+  // ICO header wrapping the 48x48 PNG
+  // Modern browsers and OS accept standard PNG embedded inside .ico or as direct favicon
+  const icoHeader = Buffer.alloc(6);
+  icoHeader.writeUInt16LE(0, 0); // reserved
+  icoHeader.writeUInt16LE(1, 2); // type 1 = ICO
+  icoHeader.writeUInt16LE(1, 4); // 1 image
+
+  const icoEntry = Buffer.alloc(16);
+  icoEntry.writeUInt8(48, 0); // width 48
+  icoEntry.writeUInt8(48, 1); // height 48
+  icoEntry.writeUInt8(0, 2);  // color palette 0
+  icoEntry.writeUInt8(0, 3);  // reserved
+  icoEntry.writeUInt16LE(1, 4); // color planes
+  icoEntry.writeUInt16LE(32, 6); // bpp 32
+  icoEntry.writeUInt32LE(favicon48.length, 8); // size of image data
+  icoEntry.writeUInt32LE(22, 12); // offset of image data (6 + 16 = 22)
+
+  const icoBuffer = Buffer.concat([icoHeader, icoEntry, favicon48]);
+  fs.writeFileSync(path.join(publicDir, 'favicon.ico'), icoBuffer);
+  console.log('✓ Generated public/favicon.ico');
+
+  // Also place in app/favicon.ico if Next.js looks for it in app directory
+  fs.writeFileSync(path.join(__dirname, '..', 'app', 'favicon.ico'), icoBuffer);
+  console.log('✓ Placed app/favicon.ico');
+
+  console.log('✨ All PWA and brand logo assets successfully created!');
+}
+
+generateAssets().catch((err) => {
+  console.error('Error generating assets:', err);
+  process.exit(1);
+});

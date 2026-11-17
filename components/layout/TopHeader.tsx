@@ -17,6 +17,7 @@ import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { usePWAInstall, PWAInstallModal } from "@/components/pwa/PWAInstallPrompt";
+import { BrandLogo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 
 export function TopHeader({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) {
@@ -78,9 +79,7 @@ export function TopHeader({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void 
         </button>
 
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-            SF
-          </div>
+          <BrandLogo size={32} />
         </div>
         <div className="min-w-0">
           <h1 className="text-sm sm:text-lg font-bold text-foreground leading-tight truncate">

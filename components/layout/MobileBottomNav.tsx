@@ -23,6 +23,7 @@ import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePWAInstall, PWAInstallModal } from "@/components/pwa/PWAInstallPrompt";
 import { hasFeatureAccess } from "@/lib/permissions";
+import { BrandLogo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 
 export function MobileBottomNav({
@@ -121,9 +122,7 @@ export function MobileBottomNav({
             <div>
               <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                    SF
-                  </div>
+                  <BrandLogo size={36} />
                   <div>
                     <h3 className="font-extrabold text-sm text-foreground">ShopNearFin</h3>
                     <p className="text-[11px] text-muted-foreground">{user?.email}</p>

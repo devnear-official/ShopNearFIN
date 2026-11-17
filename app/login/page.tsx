@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/ui/toast";
+import { BrandLogo } from "@/components/ui/logo";
 
 function LoginForm() {
   const router = useRouter();
@@ -59,9 +60,7 @@ function LoginForm() {
       {/* Top bar with language toggle */}
       <div className="max-w-md w-full mx-auto flex items-center justify-between pt-2">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-teal-500 text-teal-950 font-black text-sm flex items-center justify-center">
-            SF
-          </div>
+          <BrandLogo size={32} />
           <span className="font-extrabold text-sm text-teal-100 tracking-tight">ShopNearFin</span>
         </div>
         <button

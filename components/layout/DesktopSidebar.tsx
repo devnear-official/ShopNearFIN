@@ -22,6 +22,7 @@ import {
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { hasFeatureAccess } from "@/lib/permissions";
+import { BrandLogo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 
 export function DesktopSidebar() {
@@ -65,25 +66,13 @@ export function DesktopSidebar() {
       <div className="flex items-center justify-between h-16 px-4 border-b border-border">
         {!collapsed && (
           <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-              SF
-            </div>
-            <div className="leading-tight">
-              <span className="font-extrabold text-sm text-foreground tracking-tight block">
-                ShopNearFin
-              </span>
-              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold uppercase tracking-wider block">
-                Financial Ledger
-              </span>
-            </div>
+            <BrandLogo size={36} showText />
           </Link>
         )}
 
         {collapsed && (
-          <Link href="/dashboard" className="mx-auto">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-              SF
-            </div>
+          <Link href="/dashboard" className="mx-auto" title="ShopNearFin">
+            <BrandLogo size={36} />
           </Link>
         )}
 
