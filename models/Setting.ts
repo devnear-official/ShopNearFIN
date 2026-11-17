@@ -4,7 +4,7 @@ export interface ISetting extends Document {
   businessName: string;
   currencySymbol: string;
   defaultLowStockLimit: number;
-  stockOutTriggerRule: "ON_SHIPPED" | "ON_DELIVERED";
+  stockOutTriggerRule: "ON_CREATED" | "ON_SHIPPED" | "ON_DELIVERED";
   couriers: string[];
   defaultDeliveryCharge: number;
   updatedAt: Date;
@@ -17,7 +17,7 @@ const SettingSchema = new Schema<ISetting>(
     defaultLowStockLimit: { type: Number, default: 5 },
     stockOutTriggerRule: {
       type: String,
-      enum: ["ON_SHIPPED", "ON_DELIVERED"],
+      enum: ["ON_CREATED", "ON_SHIPPED", "ON_DELIVERED"],
       default: "ON_SHIPPED",
     },
     couriers: {

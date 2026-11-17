@@ -160,6 +160,28 @@ export async function POST(req: NextRequest) {
       createdBy: user.email,
     });
 
+    // Stock deduction if trigger rule is ON_CREATED
+    let settings = await Setting.findOne();
+    if (!settings) settings = await Setting.create({});
+    if (settings.stockOutTriggerRule === "ON_CREATED") {
+      for (const item of validatedItems) {
+        await Product.findByIdAndUpdate(item.productId, {
+          $inc: { currentStock: -item.quantity },
+        });
+        await StockMovement.create({
+          productId: item.productId,
+          productName: item.productName,
+          sku: item.sku,
+          type: "OUT",
+          qty: item.quantity,
+          reference: `Order ${orderNumber} Created`,
+          note: `Stock out on order creation for ${data.customerName}`,
+          date: new Date(),
+          createdBy: user.email,
+        });
+      }
+    }
+
     await logAudit({
       userEmail: user.email,
       action: "CREATE",

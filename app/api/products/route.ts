@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/models/Product";
+import { StockMovement } from "@/models/StockMovement";
+import { Order } from "@/models/Order";
 import { getSessionFromRequest, canMutateData } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-helpers";
 import { productSchema } from "@/validators";
@@ -14,6 +16,47 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
+
+    // Self-healing: Reconcile orphan stock deductions from previously deleted orders
+    try {
+      const outMovements = await StockMovement.find({
+        type: "OUT",
+        reference: { $regex: /Order (ORD-[^\s]+)/i },
+      });
+
+      for (const sm of outMovements) {
+        const match = sm.reference.match(/Order (ORD-[^\s]+)/i);
+        if (match && match[1]) {
+          const ordNum = match[1];
+          const orderExists = await Order.exists({ orderNumber: ordNum });
+          if (!orderExists) {
+            // Order was deleted! Check if we already created a compensatory RETURN for this deletion
+            const returnSm = await StockMovement.findOne({
+              type: "RETURN",
+              reference: { $regex: ordNum, $options: "i" },
+            });
+            if (!returnSm) {
+              await Product.findByIdAndUpdate(sm.productId, {
+                $inc: { currentStock: sm.qty },
+              });
+              await StockMovement.create({
+                productId: sm.productId,
+                productName: sm.productName,
+                sku: sm.sku,
+                type: "RETURN",
+                qty: sm.qty,
+                reference: `Order ${ordNum} Deleted`,
+                note: `Automatically restocked orphan stock movement from deleted order ${ordNum}`,
+                date: new Date(),
+                createdBy: "System Reconciliation",
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Stock reconciliation error:", e);
+    }
     const searchParams = req.nextUrl.searchParams;
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.max(1, parseInt(searchParams.get("limit") || "20"));

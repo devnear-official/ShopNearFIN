@@ -130,30 +130,37 @@ export async function PATCH(
           }
         }
       } else if (targetStatus === "RETURNED") {
-        // Return to stock: items go back to currentStock
-        for (const item of order.items) {
-          await Product.findByIdAndUpdate(
-            item.productId,
-            { $inc: { currentStock: item.quantity } },
-            { session }
-          );
+        // Return to stock only if stock was already deducted previously
+        const stockWasDeducted =
+          stockRule === "ON_CREATED" ||
+          stockRule === "ON_SHIPPED" ||
+          (stockRule === "ON_DELIVERED" && currentStatus === "DELIVERED");
 
-          await StockMovement.create(
-            [
-              {
-                productId: item.productId,
-                productName: item.productName,
-                sku: item.sku,
-                type: "RETURN",
-                qty: item.quantity,
-                reference: `Order ${order.orderNumber} Returned`,
-                note: `Restocked returned item from ${order.customerName}`,
-                date: new Date(),
-                createdBy: user.email,
-              },
-            ],
-            { session }
-          );
+        if (stockWasDeducted) {
+          for (const item of order.items) {
+            await Product.findByIdAndUpdate(
+              item.productId,
+              { $inc: { currentStock: item.quantity } },
+              { session }
+            );
+
+            await StockMovement.create(
+              [
+                {
+                  productId: item.productId,
+                  productName: item.productName,
+                  sku: item.sku,
+                  type: "RETURN",
+                  qty: item.quantity,
+                  reference: `Order ${order.orderNumber} Returned`,
+                  note: `Restocked returned item from ${order.customerName}`,
+                  date: new Date(),
+                  createdBy: user.email,
+                },
+              ],
+              { session }
+            );
+          }
         }
 
         // Return loss: automatically record round-trip delivery charge as RETURN_LOSS expense!
@@ -181,8 +188,14 @@ export async function PATCH(
           );
         }
       } else if (targetStatus === "CANCELLED") {
-        // If it was already shipped and cancelled later, restore stock
-        if (currentStatus === "SHIPPED" && stockRule === "ON_SHIPPED") {
+        // If stock was already deducted, restore stock back
+        const stockWasDeducted =
+          stockRule === "ON_CREATED" ||
+          (currentStatus === "SHIPPED" && stockRule === "ON_SHIPPED") ||
+          (currentStatus === "DELIVERED" &&
+            (stockRule === "ON_SHIPPED" || stockRule === "ON_DELIVERED"));
+
+        if (stockWasDeducted) {
           for (const item of order.items) {
             await Product.findByIdAndUpdate(
               item.productId,
@@ -198,8 +211,8 @@ export async function PATCH(
                   sku: item.sku,
                   type: "RETURN",
                   qty: item.quantity,
-                  reference: `Order ${order.orderNumber} Cancelled after Ship`,
-                  note: `Restocked items from cancelled order`,
+                  reference: `Order ${order.orderNumber} Cancelled`,
+                  note: `Restocked items from cancelled order ${order.orderNumber}`,
                   date: new Date(),
                   createdBy: user.email,
                 },

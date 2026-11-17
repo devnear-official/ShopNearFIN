@@ -111,7 +111,7 @@ export const settingsSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
   currencySymbol: z.string().default("৳"),
   defaultLowStockLimit: z.coerce.number().int().min(1),
-  stockOutTriggerRule: z.enum(["ON_SHIPPED", "ON_DELIVERED"]),
+  stockOutTriggerRule: z.enum(["ON_CREATED", "ON_SHIPPED", "ON_DELIVERED"]),
   couriers: z.array(z.string()).min(1),
   defaultDeliveryCharge: z.coerce.number().min(0),
 });

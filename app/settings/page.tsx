@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [businessName, setBusinessName] = useState("ShopNearFin E-commerce");
   const [currencySymbol, setCurrencySymbol] = useState("৳");
   const [defaultLowStockLimit, setDefaultLowStockLimit] = useState(5);
-  const [stockOutTriggerRule, setStockOutTriggerRule] = useState<"ON_SHIPPED" | "ON_DELIVERED">("ON_SHIPPED");
+  const [stockOutTriggerRule, setStockOutTriggerRule] = useState<"ON_CREATED" | "ON_SHIPPED" | "ON_DELIVERED">("ON_SHIPPED");
   const [couriersText, setCouriersText] = useState("Steadfast, Pathao, RedX, Paperfly, Other");
   const [defaultDeliveryCharge, setDefaultDeliveryCharge] = useState(120);
 
@@ -183,7 +183,23 @@ export default function SettingsPage() {
               <label className="block text-xs font-semibold text-foreground mb-1">
                 Stock-Out Inventory Trigger Rule
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+                <button
+                  type="button"
+                  disabled={!canMutateData(user)}
+                  onClick={() => setStockOutTriggerRule("ON_CREATED")}
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
+                    stockOutTriggerRule === "ON_CREATED"
+                      ? "border-teal-600 bg-teal-50 dark:bg-teal-950/60 ring-2 ring-teal-600"
+                      : "border-border bg-card"
+                  } ${!canMutateData(user) ? "opacity-70 cursor-not-allowed" : ""}`}
+                >
+                  <span className="font-bold text-xs block text-foreground">On Order Created</span>
+                  <span className="text-[11px] text-muted-foreground block mt-0.5">
+                    Deducts warehouse stock immediately when an order is created.
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   disabled={!canMutateData(user)}
@@ -194,7 +210,7 @@ export default function SettingsPage() {
                       : "border-border bg-card"
                   } ${!canMutateData(user) ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
-                  <span className="font-bold text-xs block text-foreground">On Shipped (Recommended)</span>
+                  <span className="font-bold text-xs block text-foreground">On Shipped (Default)</span>
                   <span className="text-[11px] text-muted-foreground block mt-0.5">
                     Deducts warehouse stock the moment the order is marked SHIPPED.
                   </span>
