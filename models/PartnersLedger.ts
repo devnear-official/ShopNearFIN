@@ -4,6 +4,8 @@ export interface IPartnersLedger extends Document {
   partnerName: string;
   type: "INVESTMENT" | "REIMBURSEMENT" | "WITHDRAWAL";
   amount: number;
+  grossAmount?: number;
+  cashoutFee?: number;
   paymentMethod: "CASH" | "BKASH" | "NAGAD" | "BANK";
   note?: string;
   date: Date;
@@ -22,6 +24,8 @@ const PartnersLedgerSchema = new Schema<IPartnersLedger>(
       index: true,
     },
     amount: { type: Number, required: true, min: 0 },
+    grossAmount: { type: Number },
+    cashoutFee: { type: Number, default: 0 },
     paymentMethod: {
       type: String,
       enum: ["CASH", "BKASH", "NAGAD", "BANK"],

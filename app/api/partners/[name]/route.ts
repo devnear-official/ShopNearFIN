@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { PartnersLedger } from "@/models/PartnersLedger";
 import { Expense } from "@/models/Expense";
+import { Transaction } from "@/models/Transaction";
 import { getSessionFromRequest } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-helpers";
 import { calculatePartnerEquity } from "@/lib/formulas";
@@ -83,7 +84,21 @@ export async function DELETE(
 
     const nameRegex = new RegExp(`^${partnerName}$`, "i");
     const deletedEntries = await PartnersLedger.find({ partnerName: nameRegex });
+    const entryIds = deletedEntries.map((e) => e._id.toString());
+
+    // 1. Delete all entries in PartnersLedger
     await PartnersLedger.deleteMany({ partnerName: nameRegex });
+
+    // 2. Delete all matching transactions so Cash / Bank / MFS vault balances decrease properly!
+    await Transaction.deleteMany({
+      $or: [
+        { refId: { $in: entryIds } },
+        {
+          refType: { $in: ["INVESTMENT", "WITHDRAWAL"] },
+          note: { $regex: partnerName, $options: "i" },
+        },
+      ],
+    });
 
     const { logAudit } = await import("@/lib/audit");
     await logAudit({

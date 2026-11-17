@@ -20,6 +20,7 @@ import {
   ExternalLink,
   RotateCw,
   Plus,
+  Edit3,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,6 +126,110 @@ export default function PartnerDetailPage() {
       toast("Error recording transaction", "error");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Edit Entry State
+  const [editingEntry, setEditingEntry] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editType, setEditType] = useState<"INVESTMENT" | "REIMBURSEMENT" | "WITHDRAWAL">("INVESTMENT");
+  const [editGrossAmount, setEditGrossAmount] = useState<number>(0);
+  const [editCashoutFee, setEditCashoutFee] = useState<number>(0);
+  const [editPaymentMethod, setEditPaymentMethod] = useState("BANK");
+  const [editDate, setEditDate] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (editType === "INVESTMENT" && editGrossAmount > 0) {
+      if (editPaymentMethod === "BKASH") {
+        setEditCashoutFee(Math.round((editGrossAmount * 18.5) / 1000));
+      } else if (editPaymentMethod === "NAGAD") {
+        setEditCashoutFee(Math.round((editGrossAmount * 15) / 1000));
+      } else {
+        setEditCashoutFee(0);
+      }
+    } else {
+      setEditCashoutFee(0);
+    }
+  }, [editType, editGrossAmount, editPaymentMethod]);
+
+  const editNetAmount = Math.max(0, editGrossAmount - editCashoutFee);
+
+  const openEditModal = (entry: any) => {
+    setEditingEntry(entry);
+    setEditType(entry.type);
+    const gross = entry.grossAmount || (entry.cashoutFee ? entry.amount + entry.cashoutFee : entry.amount);
+    setEditGrossAmount(gross);
+    setEditCashoutFee(entry.cashoutFee || 0);
+    setEditPaymentMethod(entry.paymentMethod || "BANK");
+    setEditDate(entry.date ? new Date(entry.date).toISOString().split("T")[0] : "");
+    setEditNote(entry.note || entry.description || "");
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEntry) return;
+    if (editGrossAmount <= 0) {
+      toast("Please enter a valid amount", "error");
+      return;
+    }
+    setEditSubmitting(true);
+
+    const netAmount = editType === "INVESTMENT" && editCashoutFee > 0 ? editNetAmount : Number(editGrossAmount);
+
+    try {
+      const res = await fetch(`/api/partners/entry/${editingEntry._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: editType,
+          amount: netAmount,
+          grossAmount: Number(editGrossAmount),
+          cashoutFee: Number(editCashoutFee) || 0,
+          paymentMethod: editPaymentMethod,
+          date: editDate ? new Date(editDate) : new Date(),
+          note: editNote,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast(json.message || "Failed to update entry", "error");
+        return;
+      }
+
+      toast("Partner entry and cash/vault balance updated successfully!", "success");
+      setEditModalOpen(false);
+      setEditingEntry(null);
+      fetchPartnerData();
+    } catch {
+      toast("Error updating entry", "error");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDeleteEntry = async (entryId: string, amount: number) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete this ৳${amount.toLocaleString("en-IN")} ledger entry? The cash/vault balance will also be updated.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/partners/entry/${entryId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast(json.message || "Failed to delete entry", "error");
+        return;
+      }
+      toast("Entry deleted and cash/vault balance updated!", "success");
+      fetchPartnerData();
+    } catch {
+      toast("Error deleting entry", "error");
     }
   };
 
@@ -429,6 +534,29 @@ export default function PartnerDetailPage() {
                         </div>
                       )}
                     </div>
+
+                    {canMutateData(user) && (
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
+                        <Button
+                          onClick={() => openEditModal(e)}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 rounded-xl text-xs font-semibold gap-1.5 border-teal-600/40 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-teal-600" />
+                          <span>{language === "bn" ? "এডিট" : "Edit"}</span>
+                        </Button>
+                        <Button
+                          onClick={() => handleDeleteEntry(e._id, e.amount)}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 rounded-xl text-xs font-semibold gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>{language === "bn" ? "ডিলিট" : "Delete"}</span>
+                        </Button>
+                      </div>
+                    )}
                   </Card>
                 );
               })}
@@ -445,6 +573,7 @@ export default function PartnerDetailPage() {
                     <th className="py-3 px-4">Fee / Gross Details</th>
                     <th className="py-3 px-4">Description</th>
                     <th className="py-3 px-4 text-right">Net Amount</th>
+                    <th className="py-3 px-4 text-right">{language === "bn" ? "অ্যাকশন" : "Actions"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -487,7 +616,7 @@ export default function PartnerDetailPage() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-xs text-muted-foreground max-w-xs truncate">
-                          {e.description || "—"}
+                          {e.description || e.note || "—"}
                         </td>
                         <td
                           className={`py-3 px-4 text-right font-black text-sm ${
@@ -497,6 +626,26 @@ export default function PartnerDetailPage() {
                           }`}
                         >
                           {isInvest || isReimburse ? "+" : "-"} <Money amount={e.amount} />
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {canMutateData(user) && (
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => openEditModal(e)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors"
+                                title="Edit Entry"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEntry(e._id, e.amount)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                title="Delete Entry"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -822,6 +971,194 @@ export default function PartnerDetailPage() {
                   : language === "bn"
                   ? `${entryType === "INVESTMENT" ? "বিনিয়োগ" : entryType} সংরক্ষণ করুন`
                   : `Record ${entryType}`}
+              </span>
+            </Button>
+          </div>
+        </form>
+      </SheetDrawer>
+
+      {/* Edit Entry Drawer */}
+      <SheetDrawer
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingEntry(null);
+        }}
+        title={
+          language === "bn"
+            ? `${partnerName}-এর লেনদেন পরিবর্তন (Edit Entry)`
+            : `Edit Partner Entry: ${partnerName}`
+        }
+        description={
+          language === "bn"
+            ? "লেনদেনের পরিমাণ, গেটওয়ে বা বিবরণ পরিবর্তন করুন। ক্যাশ ও ব্যাংক ফান্ড স্বয়ংক্রিয়ভাবে আপডেট হবে।"
+            : "Update amount, payment method, or note. Business cash and vault balance will sync automatically."
+        }
+      >
+        <form onSubmit={handleUpdateEntry} className="space-y-4">
+          {/* Partner Name (Fixed) */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "অংশীদারের নাম (Partner)" : "Partner Name"}
+            </label>
+            <input
+              type="text"
+              value={partnerName}
+              disabled
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-muted/60 text-foreground font-bold text-sm cursor-not-allowed"
+            />
+          </div>
+
+          {/* Entry Type Selection */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "লেনদেনের ধরন (Transaction Type)" : "Transaction Type"}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setEditType("INVESTMENT")}
+                className={`p-2.5 rounded-xl border text-center transition-all ${
+                  editType === "INVESTMENT"
+                    ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-600 font-bold"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <ArrowDownRight className="w-4 h-4 mx-auto mb-1 text-emerald-600" />
+                <span className="text-[11px] block">{language === "bn" ? "বিনিয়োগ (In)" : "Investment"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEditType("WITHDRAWAL")}
+                className={`p-2.5 rounded-xl border text-center transition-all ${
+                  editType === "WITHDRAWAL"
+                    ? "border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 ring-2 ring-rose-600 font-bold"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <ArrowUpRight className="w-4 h-4 mx-auto mb-1 text-rose-600" />
+                <span className="text-[11px] block">{language === "bn" ? "উত্তোলন (Out)" : "Withdrawal"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEditType("REIMBURSEMENT")}
+                className={`p-2.5 rounded-xl border text-center transition-all ${
+                  editType === "REIMBURSEMENT"
+                    ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 ring-2 ring-blue-600 font-bold"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <Receipt className="w-4 h-4 mx-auto mb-1 text-blue-600" />
+                <span className="text-[11px] block">{language === "bn" ? "পরিশোধ" : "Reimburse"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Business Account / Payment Method */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "ব্যবসায়িক অ্যাকাউন্ট / মাধ্যম" : "Business Account / Gateway"}
+            </label>
+            <select
+              value={editPaymentMethod}
+              onChange={(e) => setEditPaymentMethod(e.target.value)}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-card text-foreground text-sm font-medium focus:ring-2 focus:ring-teal-600"
+            >
+              <option value="BANK">Bank Account (সিটি / ব্র্যাক / অন্যান্য)</option>
+              <option value="CASH">Cash Vault (ক্যাশ ফান্ড)</option>
+              <option value="BKASH">bKash (বিকাশ মার্চেন্ট / পার্সোনাল)</option>
+              <option value="NAGAD">Nagad (নগদ অ্যাকাউন্ট)</option>
+            </select>
+          </div>
+
+          {/* Gross Amount Input */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {editType === "INVESTMENT" && (editPaymentMethod === "BKASH" || editPaymentMethod === "NAGAD")
+                ? language === "bn" ? "প্রদত্ত গ্রস টাকার পরিমাণ (Gross Sent Amount)" : "Gross Sent Amount (৳)"
+                : language === "bn" ? "টাকার পরিমাণ (Amount)" : "Amount (৳)"}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">৳</span>
+              <Input
+                type="number"
+                min="1"
+                step="any"
+                value={editGrossAmount || ""}
+                onChange={(e) => setEditGrossAmount(Number(e.target.value))}
+                placeholder="e.g. 50000"
+                className="pl-8 h-11 rounded-xl text-base font-bold"
+                required
+              />
+            </div>
+          </div>
+
+          {/* bKash / Nagad Fee Calculation Box (if investment via MFS) */}
+          {editType === "INVESTMENT" && (editPaymentMethod === "BKASH" || editPaymentMethod === "NAGAD") && (
+            <div className="p-3.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-xs space-y-2">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>{editPaymentMethod === "BKASH" ? "bKash Cashout Fee (1.85%)" : "Nagad Cashout Fee (1.5%)"}:</span>
+                <div className="flex items-center gap-1.5">
+                  <span>৳</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editCashoutFee}
+                    onChange={(e) => setEditCashoutFee(Number(e.target.value))}
+                    className="w-20 h-7 px-2 rounded-lg border border-input bg-card text-foreground font-bold text-right"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between font-black text-sm text-foreground pt-1.5 border-t border-teal-200/60 dark:border-teal-800/60">
+                <span>{language === "bn" ? "ব্যবসায় জমা হওয়া নেট মূলধন" : "Net Business Capital (Equity)"}:</span>
+                <span className="text-emerald-700 dark:text-emerald-300">
+                  ৳ {editNetAmount.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Date Picker */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "তারিখ (Date)" : "Date"}
+            </label>
+            <Input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              className="h-11 rounded-xl"
+              required
+            />
+          </div>
+
+          {/* Note / Description */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "বিবরণ / নোট (ঐচ্ছিক)" : "Note / Reference (Optional)"}
+            </label>
+            <Input
+              type="text"
+              value={editNote}
+              onChange={(e) => setEditNote(e.target.value)}
+              className="h-11 rounded-xl"
+            />
+          </div>
+
+          {/* Submit Button */}
+          <div className="pt-2">
+            <Button
+              type="submit"
+              disabled={editSubmitting || editGrossAmount <= 0}
+              className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs gap-1.5 touch-target shadow-sm"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>
+                {editSubmitting
+                  ? language === "bn" ? "পরিবর্তন সংরক্ষণ হচ্ছে..." : "Updating..."
+                  : language === "bn" ? "পরিবর্তন সংরক্ষণ করুন" : "Save Changes"}
               </span>
             </Button>
           </div>

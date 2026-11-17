@@ -115,6 +115,8 @@ export async function POST(req: NextRequest) {
             partnerName,
             type,
             amount,
+            grossAmount: grossAmount || amount + (cashoutFee || 0),
+            cashoutFee: cashoutFee || 0,
             paymentMethod,
             note: entryNote,
             date: entryDate,
