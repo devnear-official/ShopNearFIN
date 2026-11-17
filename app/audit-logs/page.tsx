@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   ShieldAlert,
   Search,
@@ -24,6 +25,7 @@ import { SheetDrawer } from "@/components/ui/sheet-drawer";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/ui/toast";
 import { formatDateTime } from "@/lib/utils";
 
@@ -252,7 +254,9 @@ function AuditDetailsContent({ log, language }: { log: any; language: string }) 
 }
 
 export default function AuditLogsPage() {
+  const router = useRouter();
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const [logs, setLogs] = useState<any[]>([]);
@@ -260,6 +264,12 @@ export default function AuditLogsPage() {
   const [moduleFilter, setModuleFilter] = useState("ALL");
   const [userEmailSearch, setUserEmailSearch] = useState("");
   const [activeLog, setActiveLog] = useState<any>(null);
+
+  useEffect(() => {
+    if (user && user.role !== "SUPER_ADMIN" && !user.isSuperAdmin) {
+      router.push("/dashboard");
+    }
+  }, [user, router]);
 
   const fetchLogs = async () => {
     try {

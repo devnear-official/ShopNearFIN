@@ -11,6 +11,10 @@ export async function GET(req: NextRequest) {
       return errorResponse("Unauthorized", "UNAUTHORIZED", 401);
     }
 
+    if (user.role !== "SUPER_ADMIN" && !user.isSuperAdmin) {
+      return errorResponse("Forbidden. Only Super Admin can view audit logs.", "FORBIDDEN", 403);
+    }
+
     await connectDB();
     const searchParams = req.nextUrl.searchParams;
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));

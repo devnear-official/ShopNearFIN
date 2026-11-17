@@ -140,11 +140,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (account) {
+        const genTxNumber = () => `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
         if (type === "INVESTMENT") {
           // Partner puts net money INTO business account
           await Transaction.create(
             [
               {
+                transactionNumber: genTxNumber(),
                 accountId: account._id,
                 accountMethod: paymentMethod,
                 type: "IN",
@@ -164,6 +166,7 @@ export async function POST(req: NextRequest) {
           await Transaction.create(
             [
               {
+                transactionNumber: genTxNumber(),
                 accountId: account._id,
                 accountMethod: paymentMethod,
                 type: "OUT",

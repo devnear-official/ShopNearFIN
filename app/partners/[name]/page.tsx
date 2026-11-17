@@ -19,6 +19,7 @@ import {
   Trash2,
   ExternalLink,
   RotateCw,
+  Plus,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,9 @@ import { Money } from "@/components/ui/money";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SheetDrawer } from "@/components/ui/sheet-drawer";
+import { Input } from "@/components/ui/input";
+import { FAB } from "@/components/ui/fab";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/ui/toast";
@@ -46,6 +50,83 @@ export default function PartnerDetailPage() {
   const [data, setData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"entries" | "expenses">("entries");
   const [deleting, setDeleting] = useState(false);
+
+  // New Transaction / Investment Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [entryType, setEntryType] = useState<"INVESTMENT" | "REIMBURSEMENT" | "WITHDRAWAL">("INVESTMENT");
+  const [grossAmount, setGrossAmount] = useState<number>(0);
+  const [cashoutFee, setCashoutFee] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState("BANK");
+  const [entryDate, setEntryDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Auto calculate fee for bKash/Nagad investment
+  useEffect(() => {
+    if (entryType === "INVESTMENT" && grossAmount > 0) {
+      if (paymentMethod === "BKASH") {
+        const fee = Math.round((grossAmount * 18.5) / 1000);
+        setCashoutFee(fee);
+      } else if (paymentMethod === "NAGAD") {
+        const fee = Math.round((grossAmount * 15) / 1000);
+        setCashoutFee(fee);
+      } else {
+        setCashoutFee(0);
+      }
+    } else {
+      setCashoutFee(0);
+    }
+  }, [entryType, grossAmount, paymentMethod]);
+
+  const netInvestmentAmount = Math.max(0, grossAmount - cashoutFee);
+
+  const handleSubmitEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (grossAmount <= 0) {
+      toast("Please enter a valid amount", "error");
+      return;
+    }
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/partners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          partnerName: partnerName.trim(),
+          type: entryType,
+          amount: entryType === "INVESTMENT" && cashoutFee > 0 ? netInvestmentAmount : Number(grossAmount),
+          grossAmount: Number(grossAmount),
+          cashoutFee: Number(cashoutFee) || 0,
+          paymentMethod,
+          date: entryDate ? new Date(entryDate) : new Date(),
+          note,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast(json.message || "Failed to record transaction", "error");
+        return;
+      }
+
+      toast(
+        cashoutFee > 0
+          ? `Recorded ৳${netInvestmentAmount.toLocaleString("en-IN")} Net Investment (৳${cashoutFee} fee deducted from ৳${grossAmount.toLocaleString("en-IN")})`
+          : `Successfully recorded ${entryType} for ${partnerName}`,
+        "success"
+      );
+      setModalOpen(false);
+      setGrossAmount(0);
+      setCashoutFee(0);
+      setNote("");
+      fetchPartnerData();
+    } catch {
+      toast("Error recording transaction", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const fetchPartnerData = async () => {
     try {
@@ -144,6 +225,17 @@ export default function PartnerDetailPage() {
           >
             <RotateCw className={`w-4 h-4 ${loading ? "animate-spin text-teal-600" : ""}`} />
           </button>
+
+          {canMutateData(user) && (
+            <Button
+              onClick={() => setModalOpen(true)}
+              size="sm"
+              className="h-10 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs gap-1.5 touch-target shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{language === "bn" ? "নতুন বিনিয়োগ / লেনদেন" : "Add Entry"}</span>
+            </Button>
+          )}
 
           {canMutateData(user) && (
             <Button
@@ -533,6 +625,208 @@ export default function PartnerDetailPage() {
           </div>
         )
       )}
+
+      {/* Mobile Floating Action Button */}
+      {canMutateData(user) && (
+        <FAB
+          onClick={() => setModalOpen(true)}
+          icon={<Plus className="w-6 h-6" />}
+          label={language === "bn" ? "নতুন বিনিয়োগ" : "Add Entry"}
+        />
+      )}
+
+      {/* New Investment / Transaction Drawer for this Partner */}
+      <SheetDrawer
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={
+          language === "bn"
+            ? `${partnerName}-এর মূলধন বিনিয়োগ বা লেনদেন`
+            : `Add Capital or Ledger Entry: ${partnerName}`
+        }
+        description={
+          language === "bn"
+            ? "অংশীদারের মূলধন বিনিয়োগ, উত্তোলন বা খরচের টাকা পরিশোধ রেকর্ড করুন"
+            : "Record capital investment, withdrawals, or reimbursement for this partner"
+        }
+      >
+        <form onSubmit={handleSubmitEntry} className="space-y-4">
+          {/* Partner Name (Fixed / Pre-filled) */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "অংশীদারের নাম (Partner)" : "Partner Name"}
+            </label>
+            <input
+              type="text"
+              value={partnerName}
+              disabled
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-muted/60 text-foreground font-bold text-sm cursor-not-allowed"
+            />
+          </div>
+
+          {/* Entry Type Selection */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "লেনদেনের ধরন (Transaction Type)" : "Transaction Type"}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setEntryType("INVESTMENT")}
+                className={`p-2.5 rounded-xl border text-center transition-all ${
+                  entryType === "INVESTMENT"
+                    ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-600 font-bold"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <ArrowDownRight className="w-4 h-4 mx-auto mb-1 text-emerald-600" />
+                <span className="text-[11px] block">{language === "bn" ? "বিনিয়োগ (In)" : "Investment"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEntryType("WITHDRAWAL")}
+                className={`p-2.5 rounded-xl border text-center transition-all ${
+                  entryType === "WITHDRAWAL"
+                    ? "border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 ring-2 ring-rose-600 font-bold"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <ArrowUpRight className="w-4 h-4 mx-auto mb-1 text-rose-600" />
+                <span className="text-[11px] block">{language === "bn" ? "উত্তোলন (Out)" : "Withdrawal"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEntryType("REIMBURSEMENT")}
+                className={`p-2.5 rounded-xl border text-center transition-all ${
+                  entryType === "REIMBURSEMENT"
+                    ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 ring-2 ring-blue-600 font-bold"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <Receipt className="w-4 h-4 mx-auto mb-1 text-blue-600" />
+                <span className="text-[11px] block">{language === "bn" ? "পরিশোধ" : "Reimburse"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Business Account / Payment Method */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "ব্যবসায়িক অ্যাকাউন্ট / মাধ্যম" : "Business Account / Gateway"}
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full h-11 px-3.5 rounded-xl border border-input bg-card text-foreground text-sm font-medium focus:ring-2 focus:ring-teal-600"
+            >
+              <option value="BANK">Bank Account (সিটি / ব্র্যাক / অন্যান্য)</option>
+              <option value="CASH">Cash Vault (ক্যাশ ফান্ড)</option>
+              <option value="BKASH">bKash (বিকাশ মার্চেন্ট / পার্সোনাল)</option>
+              <option value="NAGAD">Nagad (নগদ অ্যাকাউন্ট)</option>
+            </select>
+          </div>
+
+          {/* Gross Amount Input */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {entryType === "INVESTMENT" && (paymentMethod === "BKASH" || paymentMethod === "NAGAD")
+                ? language === "bn" ? "প্রদত্ত গ্রস টাকার পরিমাণ (Gross Sent Amount)" : "Gross Sent Amount (৳)"
+                : language === "bn" ? "টাকার পরিমাণ (Amount)" : "Amount (৳)"}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">৳</span>
+              <Input
+                type="number"
+                min="1"
+                step="any"
+                value={grossAmount || ""}
+                onChange={(e) => setGrossAmount(Number(e.target.value))}
+                placeholder="e.g. 50000"
+                className="pl-8 h-11 rounded-xl text-base font-bold"
+                required
+              />
+            </div>
+          </div>
+
+          {/* bKash / Nagad Fee Calculation Box (if investment via MFS) */}
+          {entryType === "INVESTMENT" && (paymentMethod === "BKASH" || paymentMethod === "NAGAD") && (
+            <div className="p-3.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-xs space-y-2">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>{paymentMethod === "BKASH" ? "bKash Cashout Fee (1.85%)" : "Nagad Cashout Fee (1.5%)"}:</span>
+                <div className="flex items-center gap-1.5">
+                  <span>৳</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={cashoutFee}
+                    onChange={(e) => setCashoutFee(Number(e.target.value))}
+                    className="w-20 h-7 px-2 rounded-lg border border-input bg-card text-foreground font-bold text-right"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between font-black text-sm text-foreground pt-1.5 border-t border-teal-200/60 dark:border-teal-800/60">
+                <span>{language === "bn" ? "ব্যবসায় জমা হওয়া নেট মূলধন" : "Net Business Capital (Equity)"}:</span>
+                <span className="text-emerald-700 dark:text-emerald-300">
+                  ৳ {netInvestmentAmount.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {language === "bn"
+                  ? "ক্যাশআউট চার্জ কর্তনের পর অবশিষ্ট নেট টাকা কোম্পানির মূলধন ও অ্যাকাউন্টে যোগ হবে।"
+                  : "Net amount after cashout fee will be credited to business capital balance."}
+              </p>
+            </div>
+          )}
+
+          {/* Date Picker */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "তারিখ (Date)" : "Date"}
+            </label>
+            <Input
+              type="date"
+              value={entryDate}
+              onChange={(e) => setEntryDate(e.target.value)}
+              className="h-11 rounded-xl"
+              required
+            />
+          </div>
+
+          {/* Note / Description */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              {language === "bn" ? "বিবরণ / নোট (ঐচ্ছিক)" : "Note / Reference (Optional)"}
+            </label>
+            <Input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={language === "bn" ? "যেমন: দ্বিতীয় কিস্তির বিনিয়োগ" : "e.g. 2nd round capital injection"}
+              className="h-11 rounded-xl"
+            />
+          </div>
+
+          {/* Submit Button */}
+          <div className="pt-2">
+            <Button
+              type="submit"
+              disabled={submitting || grossAmount <= 0}
+              className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs gap-1.5 touch-target shadow-sm"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>
+                {submitting
+                  ? language === "bn" ? "সংরক্ষণ হচ্ছে..." : "Recording..."
+                  : language === "bn"
+                  ? `${entryType === "INVESTMENT" ? "বিনিয়োগ" : entryType} সংরক্ষণ করুন`
+                  : `Record ${entryType}`}
+              </span>
+            </Button>
+          </div>
+        </form>
+      </SheetDrawer>
     </DashboardLayout>
   );
 }

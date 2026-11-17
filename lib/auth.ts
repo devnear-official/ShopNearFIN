@@ -7,10 +7,12 @@ import {
   UserStatus,
   SessionUser,
   canManageUsers,
+  canViewAuditLogs,
   canMutateData,
+  hasFeatureAccess,
 } from "./permissions";
 
-export { canManageUsers, canMutateData };
+export { canManageUsers, canViewAuditLogs, canMutateData, hasFeatureAccess };
 export type { UserRole, UserStatus, SessionUser };
 
 const JWT_SECRET_STRING = process.env.JWT_SECRET || "super-secret-jwt-key-change-this-in-production-min-32-chars";

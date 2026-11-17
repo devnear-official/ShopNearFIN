@@ -92,6 +92,16 @@ export async function POST(req: NextRequest) {
       email: user.email,
       role: user.role,
       status: user.status,
+      permissions: user.permissions || [
+        "dashboard",
+        "orders",
+        "products",
+        "expenses",
+        "partners",
+        "accounts",
+        "reports",
+        "settings",
+      ],
       isSuperAdmin: false,
     };
 

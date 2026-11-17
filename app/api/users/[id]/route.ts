@@ -22,7 +22,7 @@ export async function PATCH(
       return errorResponse(parseResult.error.errors[0].message, "VALIDATION_ERROR");
     }
 
-    const { status, role } = parseResult.data;
+    const { status, role, permissions } = parseResult.data;
 
     await connectDB();
     const existingUser = await User.findById(params.id);
@@ -33,27 +33,38 @@ export async function PATCH(
     const oldValue = {
       status: existingUser.status,
       role: existingUser.role,
+      permissions: existingUser.permissions,
     };
 
-    existingUser.status = status || existingUser.status;
+    if (status) {
+      existingUser.status = status;
+    }
     if (role) {
       existingUser.role = role;
     }
+    if (permissions && Array.isArray(permissions)) {
+      existingUser.permissions = permissions;
+    }
     await existingUser.save();
 
-    const action =
-      role && oldValue.role !== role
-        ? "UPDATE"
-        : status === "APPROVED"
-        ? "APPROVE_USER"
-        : "REJECT_USER";
+    const action: "APPROVE_USER" | "REJECT_USER" | "UPDATE" =
+      status && oldValue.status !== status
+        ? status === "APPROVED"
+          ? "APPROVE_USER"
+          : "REJECT_USER"
+        : "UPDATE";
+
     await logAudit({
       userEmail: sessionUser.email,
       action,
       module: "USERS",
       recordId: existingUser._id.toString(),
       oldValue,
-      newValue: { status: existingUser.status, role: existingUser.role },
+      newValue: {
+        status: existingUser.status,
+        role: existingUser.role,
+        permissions: existingUser.permissions,
+      },
       ip: req.headers.get("x-forwarded-for") || "127.0.0.1",
     });
 
@@ -64,8 +75,9 @@ export async function PATCH(
         email: existingUser.email,
         status: existingUser.status,
         role: existingUser.role,
+        permissions: existingUser.permissions,
       },
-      `User ${role && oldValue.role !== role ? `role updated to ${role}` : status.toLowerCase()} successfully`
+      `User ${existingUser.name} updated successfully (${existingUser.status}, ${existingUser.role})`
     );
   } catch (error: any) {
     return errorResponse(error.message || "Failed to update user", "SERVER_ERROR", 500);

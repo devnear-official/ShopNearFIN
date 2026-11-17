@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface ITransaction extends Document {
+  transactionNumber?: string;
   accountId: mongoose.Types.ObjectId;
   accountMethod: "CASH" | "BKASH" | "NAGAD" | "BANK";
   type: "IN" | "OUT" | "TRANSFER";
@@ -18,6 +19,12 @@ export interface ITransaction extends Document {
 
 const TransactionSchema = new Schema<ITransaction>(
   {
+    transactionNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: () => `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+    },
     accountId: { type: Schema.Types.ObjectId, ref: "Account", required: true, index: true },
     accountMethod: {
       type: String,

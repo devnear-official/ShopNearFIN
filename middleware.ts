@@ -44,9 +44,37 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Role-specific protection: only SUPER_ADMIN can access /users
-    if (pathname.startsWith("/users") && sessionUser.role !== "SUPER_ADMIN") {
+    // Role-specific protection: only SUPER_ADMIN can access /users and /audit-logs
+    if (
+      (pathname.startsWith("/users") || pathname.startsWith("/audit-logs")) &&
+      sessionUser.role !== "SUPER_ADMIN"
+    ) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    // Custom feature-level permission enforcement for non-superadmin users
+    if (
+      sessionUser.role !== "SUPER_ADMIN" &&
+      Array.isArray(sessionUser.permissions) &&
+      sessionUser.permissions.length > 0
+    ) {
+      const featureKey = pathname.split("/")[1]; // e.g. "orders", "partners", "expenses"
+      const allAppFeatures = [
+        "dashboard",
+        "orders",
+        "products",
+        "expenses",
+        "partners",
+        "accounts",
+        "reports",
+        "settings",
+      ];
+      if (
+        allAppFeatures.includes(featureKey) &&
+        !sessionUser.permissions.includes(featureKey)
+      ) {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
     }
   }
 

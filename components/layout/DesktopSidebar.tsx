@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { hasFeatureAccess } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 export function DesktopSidebar() {
@@ -29,20 +30,29 @@ export function DesktopSidebar() {
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
-  const navItems = [
-    { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
-    { href: "/orders", label: t("orders"), icon: ShoppingCart },
-    { href: "/products", label: t("products"), icon: Package },
-    { href: "/expenses", label: t("expenses"), icon: Receipt },
-    { href: "/partners", label: t("partners"), icon: Users },
-    { href: "/accounts", label: t("accounts"), icon: Wallet },
-    { href: "/reports", label: t("reports"), icon: FileBarChart },
-    { href: "/audit-logs", label: t("auditLogs"), icon: ShieldAlert },
-    ...(user?.role === "SUPER_ADMIN"
-      ? [{ href: "/users", label: t("userManagement"), icon: UserCog }]
+  const isSuperAdmin = user?.role === "SUPER_ADMIN" || user?.isSuperAdmin;
+
+  const allNavItems = [
+    { key: "dashboard", href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
+    { key: "orders", href: "/orders", label: t("orders"), icon: ShoppingCart },
+    { key: "products", href: "/products", label: t("products"), icon: Package },
+    { key: "expenses", href: "/expenses", label: t("expenses"), icon: Receipt },
+    { key: "partners", href: "/partners", label: t("partners"), icon: Users },
+    { key: "accounts", href: "/accounts", label: t("accounts"), icon: Wallet },
+    { key: "reports", href: "/reports", label: t("reports"), icon: FileBarChart },
+    ...(isSuperAdmin
+      ? [
+          { key: "audit-logs", href: "/audit-logs", label: t("auditLogs"), icon: ShieldAlert },
+          { key: "users", href: "/users", label: t("userManagement"), icon: UserCog },
+        ]
       : []),
-    { href: "/settings", label: t("settings"), icon: Settings },
+    { key: "settings", href: "/settings", label: t("settings"), icon: Settings },
   ];
+
+  const navItems = allNavItems.filter((item) => {
+    if (item.key === "audit-logs" || item.key === "users") return isSuperAdmin;
+    return hasFeatureAccess(user, item.key);
+  });
 
   return (
     <aside

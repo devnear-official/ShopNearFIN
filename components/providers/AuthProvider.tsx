@@ -46,9 +46,31 @@ export function AuthProvider({
   };
 
   useEffect(() => {
+    // Initial fetch if no initialUser
     if (!initialUser) {
       refreshUser();
     }
+
+    // Auto-sync in background so role/permission changes made by Super Admin reflect in real-time
+    const interval = setInterval(() => {
+      // Only poll if document is visible
+      if (document.visibilityState === "visible") {
+        refreshUser();
+      }
+    }, 8000); // Check every 8s
+
+    const onFocus = () => {
+      refreshUser();
+    };
+
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("visibilitychange", onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("visibilitychange", onFocus);
+    };
   }, [initialUser]);
 
   const logout = async () => {

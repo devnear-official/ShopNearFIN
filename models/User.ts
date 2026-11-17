@@ -6,6 +6,7 @@ export interface IUser extends Document {
   passwordHash: string;
   role: "SUPER_ADMIN" | "EDITOR" | "VIEWER";
   status: "PENDING" | "APPROVED" | "REJECTED";
+  permissions: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,6 +18,10 @@ const UserSchema = new Schema<IUser>(
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ["SUPER_ADMIN", "EDITOR", "VIEWER"], default: "VIEWER" },
     status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING", index: true },
+    permissions: {
+      type: [String],
+      default: ["dashboard", "orders", "products", "expenses", "partners", "accounts", "reports", "settings"],
+    },
   },
   { timestamps: true }
 );

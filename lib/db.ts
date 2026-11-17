@@ -40,6 +40,22 @@ export async function connectDB() {
 
   try {
     cached.conn = await cached.promise;
+    // Auto-clean any legacy non-sparse transactionNumber_1 index from previous schemas
+    if (cached.conn && cached.conn.connection && cached.conn.connection.db) {
+      cached.conn.connection.db
+        .collection("transactions")
+        .indexes()
+        .then((indexes) => {
+          const legacyIdx = indexes.find((i: any) => i.name === "transactionNumber_1");
+          if (legacyIdx && !legacyIdx.sparse) {
+            return cached.conn!.connection.db!
+              .collection("transactions")
+              .dropIndex("transactionNumber_1")
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
   } catch (e) {
     cached.promise = null;
     throw e;

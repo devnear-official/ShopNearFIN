@@ -104,6 +104,7 @@ export const accountTransferSchema = z.object({
 export const userApprovalSchema = z.object({
   status: z.enum(["APPROVED", "REJECTED", "PENDING"]).optional().default("APPROVED"),
   role: z.enum(["EDITOR", "VIEWER", "SUPER_ADMIN"]).optional(),
+  permissions: z.array(z.string()).optional(),
 });
 
 export const settingsSchema = z.object({
